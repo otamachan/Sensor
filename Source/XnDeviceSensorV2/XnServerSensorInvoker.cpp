@@ -530,23 +530,19 @@ XnStatus XnServerSensorInvoker::ReadStream(XnStreamData* pStreamData, XnUInt32* 
 	nRetVal = m_sensor.GetBufferPool(pStreamData->StreamName, &pBufferPool);
 	XN_IS_STATUS_OK(nRetVal);
 
-	// dec ref old data
-	if (pStreamData->pInternal->pLockedBuffer != NULL)
-	{
-		pBufferPool->DecRef(pStreamData->pInternal->pLockedBuffer);
-	}
+	XnBuffer* pPrevLockedBuffer = pStreamData->pInternal->pLockedBuffer;
 	
 	// "read"
 	pStreamData->nDataSize = pStream->pStreamData->nDataSize;
 	pStreamData->nFrameID = pStream->pStreamData->nFrameID;
 	pStreamData->nTimestamp = pStream->pStreamData->nTimestamp;
 	pStreamData->pData = pStream->pStreamData->pData;
-	pStreamData->pInternal->pLockedBuffer = pStream->pStreamData->pInternal->pLockedBuffer;
+	pBufferPool->CopyRef(&pStreamData->pInternal->pLockedBuffer,
+		&pStream->pStreamData->pInternal->pLockedBuffer);
 
-	// add ref to new data
-	if (pStreamData->pInternal->pLockedBuffer != NULL)
+	if (pPrevLockedBuffer != NULL)
 	{
-		pBufferPool->AddRef(pStreamData->pInternal->pLockedBuffer);
+		pBufferPool->DecRef(pPrevLockedBuffer);
 	}
 
 	*pnOffset = pStreamData->pInternal->pLockedBuffer->GetData() - pStream->pSharedMemoryAddress;

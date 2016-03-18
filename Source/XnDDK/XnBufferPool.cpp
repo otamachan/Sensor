@@ -214,7 +214,8 @@ void XnBufferPool::DecRef(XnBuffer* pBuffer)
 
 	xnDumpFileWriteString(m_dump, "%u dec ref (%d)", pBufInPool->m_nID, pBufInPool->m_nRefCount-1);
 
-	if (--pBufInPool->m_nRefCount == 0)
+	pBufInPool->m_nRefCount--;
+	if (pBufInPool->m_nRefCount == 0)
 	{
 		if (pBufInPool->m_bDestroy)
 		{
@@ -237,6 +238,27 @@ void XnBufferPool::DecRef(XnBuffer* pBuffer)
 	{
 		xnDumpFileWriteString(m_dump, "\n");
 	}
+
+	xnOSLeaveCriticalSection(&m_hLock);
+}
+
+void XnBufferPool::CopyRef(XnBuffer** ppDstBuffer, XnBuffer** ppSrcBuffer)
+{
+	xnOSEnterCriticalSection(&m_hLock);
+
+	if (*ppSrcBuffer == NULL)
+	{
+		XN_ASSERT(FALSE);
+		return;
+	}
+
+	XnBufferInPool** ppDstBufInPool = (XnBufferInPool**)ppDstBuffer;
+	XnBufferInPool** ppSrcBufInPool = (XnBufferInPool**)ppSrcBuffer;
+
+	xnDumpFileWriteString(m_dump, "%u copy ref (%d)", (*ppSrcBufInPool)->m_nID, (*ppSrcBufInPool)->m_nRefCount);
+
+	(*ppSrcBufInPool)->m_nRefCount ++;
+	*ppDstBufInPool = *ppSrcBufInPool;
 
 	xnOSLeaveCriticalSection(&m_hLock);
 }

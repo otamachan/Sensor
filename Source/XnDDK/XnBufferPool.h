@@ -61,6 +61,7 @@ public:
 
 	void AddRef(XnBuffer* pBuffer);
 	void DecRef(XnBuffer* pBuffer);
+	void CopyRef(XnBuffer** ppDstBuffer, XnBuffer** ppSrcBuffer);
 
 	inline void Lock() { xnOSEnterCriticalSection(&m_hLock); }
 	inline void Unlock() { xnOSLeaveCriticalSection(&m_hLock); }

@@ -213,10 +213,15 @@ XnStatus XnFrameStream::ReadImpl(XnStreamData* pStreamOutput)
 {
 	XnStatus nRetVal = XN_STATUS_OK;
 
+	XnBuffer* pPrevLockedBuffer = pStreamOutput->pInternal->pLockedBuffer;
+	m_pBufferManager->ReadLastStableBuffer(
+		&pStreamOutput->pInternal->pLockedBuffer, 
+		&pStreamOutput->nTimestamp,
+		&pStreamOutput->nFrameID);
 	// release previous buffer
-	if (pStreamOutput->pInternal->pLockedBuffer != NULL)
+	if (pPrevLockedBuffer != NULL)
 	{
-		m_pBufferPool->DecRef(pStreamOutput->pInternal->pLockedBuffer);
+		m_pBufferPool->DecRef(pPrevLockedBuffer);
 	}
 	else if (pStreamOutput->pInternal->nAllocSize > 0)
 	{
@@ -225,11 +230,6 @@ XnStatus XnFrameStream::ReadImpl(XnStreamData* pStreamOutput)
 		nRetVal = XnStreamDataUpdateSize(pStreamOutput, 0);
 		XN_IS_STATUS_OK(nRetVal);
 	}
-
-	m_pBufferManager->ReadLastStableBuffer(
-		&pStreamOutput->pInternal->pLockedBuffer, 
-		&pStreamOutput->nTimestamp,
-		&pStreamOutput->nFrameID);
 
 	pStreamOutput->pData = (void*)pStreamOutput->pInternal->pLockedBuffer->GetData();
 	pStreamOutput->nDataSize = pStreamOutput->pInternal->pLockedBuffer->GetSize();

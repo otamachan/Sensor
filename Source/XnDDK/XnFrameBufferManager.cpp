@@ -113,41 +113,37 @@ void XnFrameBufferManager::MarkWriteBufferAsStable(XnUInt64 nTimestamp, XnUInt32
 {
 	xnOSEnterCriticalSection(&m_hLock);
 
-	// lock buffer pool (for rollback option)
-	m_pBufferPool->Lock();
-
-	XnBuffer* pPrevStable = m_pStableBuffer;
-
-	// release previous stable
-	if (m_pStableBuffer != NULL)
-	{
-		m_pBufferPool->DecRef(m_pStableBuffer);
-	}
-
-	// mark working as stable
-	m_nStableFrameID++;
-	m_nStableTimestamp = nTimestamp;
-	*pnFrameID = m_nStableFrameID;
-
-	m_pStableBuffer = m_pWorkingBuffer; // no need to add ref, working buffer will be replaced in a moment
-
+	XnBuffer* pNewWorkingBuffer;
 	// take a new working buffer
-	XnStatus nRetVal = m_pBufferPool->GetBuffer(&m_pWorkingBuffer);
+	XnStatus nRetVal = m_pBufferPool->GetBuffer(&pNewWorkingBuffer);
 	if (nRetVal != XN_STATUS_OK)
 	{
 		xnLogError(XN_MASK_DDK, "Failed to get new working buffer!");
+
+		xnOSLeaveCriticalSection(&m_hLock);
 		// we'll return back to our old working one
 		m_pWorkingBuffer->Reset();
-
-		m_pStableBuffer = pPrevStable;
-		m_pBufferPool->AddRef(m_pStableBuffer);
-		m_pBufferPool->Unlock();
 
 		XN_ASSERT(FALSE);
 		return;
 	}
+        else
+        {
+		// mark working as stable
+		m_nStableFrameID++;
+		m_nStableTimestamp = nTimestamp;
+		*pnFrameID = m_nStableFrameID;
 
-	m_pBufferPool->Unlock();
+		XnBuffer* pPrevStableBuffer = m_pStableBuffer;
+		m_pStableBuffer = m_pWorkingBuffer;
+		m_pWorkingBuffer = pNewWorkingBuffer;
+
+		if (pPrevStableBuffer != NULL)
+		{
+			m_pBufferPool->DecRef(pPrevStableBuffer);
+		}
+        }
+
 	xnOSLeaveCriticalSection(&m_hLock);
 
 	// reset new working
@@ -165,12 +161,7 @@ void XnFrameBufferManager::ReadLastStableBuffer(XnBuffer** ppBuffer, XnUInt64* p
 	xnOSEnterCriticalSection(&m_hLock);
 
 	// take a pointer to stable one
-	*ppBuffer = m_pStableBuffer;
-	// and add ref to it (so it wouldn't be deleted)
-	if (m_pStableBuffer != NULL)
-	{
-		m_pBufferPool->AddRef(m_pStableBuffer);
-	}
+	m_pBufferPool->CopyRef(ppBuffer, &m_pStableBuffer);
 
 	// take props
 	*pnTimestamp = m_nStableTimestamp;
